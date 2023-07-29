@@ -22,6 +22,8 @@ Despite the remarkable progress in modern programming languages and numerical to
 
 To tackle these concerns, this blog post aims to offer a concise overview of various general and highly effective optimization techniques that are relatively straightforward to implement. The focus will be on a problem I encountered during my research on single-molecule imaging. I will begin with a naive version of my code and gradually enhance its performance.
 
+:exclamation: All my codes below are provided in terms of an interactive notebook [at my GitHub](https://github.com/lanceXwq/BlogPostFiles/tree/main/230728%20Code%20Optimization%20I).
+
 ## Description of the problem
 
 In my research, which involves applications such as [super-resolution imaging](https://en.wikipedia.org/wiki/Super-resolution_microscopy), I frequently need to simulate microscope images of individual molecules in the visible spectrum using photon-sensing devices. In this scenario, individual molecules can be accurately represented as point emitters, meaning they are so small that their structures and shapes become insignificant. However, from a physics standpoint, we cannot simply observe sharp, bright dots in microscope images due to two reasons:
