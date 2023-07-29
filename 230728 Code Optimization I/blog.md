@@ -35,8 +35,6 @@ In my research, which involves applications such as [super-resolution imaging](h
     <img src="fig1.png" alt="A comparison of a point emitter, its Gaussian PSF, and the actual pixelated image.">
 </p>
 
-<!-- ![A comparison of a point emitter, its Gaussian PSF, and the actual pixelated image.](fig1.png) -->
-
 Simulating a single-molecule image involves converting point emitters into their corresponding PSFs and then pixelating the entire image. In these simulations (as well as in the corresponding experimental setups), it is often reasonable to assume that the point emitters are sufficiently far apart from each other, allowing for independent photon emissions. This means that we can calculate the PSF for each molecule individually and combine them.
 
 Since providing an accurate and detailed simulation process is beyond the scope of this blog, we will make the following approximations:
@@ -63,8 +61,6 @@ For a test case with 20 emitting molecules in a 256$\times$256 image, this short
 <p align="center" height="100%">
     <img src="fig2.png">
 </p>
-
-<!-- ![A comparison of a point emitter, its Gaussian PSF, and the actual pixelated image.](fig2.png) -->
 
 ## Optimization ideas
 
