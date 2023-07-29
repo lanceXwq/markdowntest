@@ -20,7 +20,7 @@ end
 md"
 # Code Optimization Part I
 
-In this file I provide the [Julia](http://www.julialang.org) source code for my blog post [here](). You can read this file directly but I highly recommend running it in an interactive fashion using [Pluto.jl](https://plutojl.org/)! 
+In this file I provide the [Julia](http://www.julialang.org) source code for my [blog post](https://labpresse.com/code-optimization-in-scientific-research-part-i/). You can read this file directly but I highly recommend running it in an interactive fashion using [Pluto.jl](https://plutojl.org/)! 
 "
 
 # ╔═╡ 88b3549a-daf5-4793-972e-342843fab713
