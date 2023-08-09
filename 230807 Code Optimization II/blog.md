@@ -1,6 +1,6 @@
-# Code Optimization in Scientific Research (Part II)
+# Optimization Techniques in Scientific Computing (Part II)
 
-- [Code Optimization in Scientific Research (Part II)](#code-optimization-in-scientific-research-part-ii)
+- [Optimization Techniques in Scientific Computing (Part II)](#optimization-techniques-in-scientific-computing-part-ii)
   - [Introduction and recap](#introduction-and-recap)
   - [The first implementation](#the-first-implementation)
   - [Optimization ideas](#optimization-ideas)
