@@ -1,3 +1,9 @@
+# This file is the Julia source code regarding multiprocessing for my blog post at https://labpresse.com/code-optimization-in-scientific-research-part-ii/.
+
+# Note that this example is very preliminary and the multiprocessing realization is obtained similarly to multithreading (by using SharedArrays).
+
+# For a code that can actually run on a cluster, check Distributed.jl.
+
 using Distributed
 using SharedArrays
 using BenchmarkTools

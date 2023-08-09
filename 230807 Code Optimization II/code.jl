@@ -20,7 +20,7 @@ end
 md"
 # Code Optimization Part I
 
-In this file I provide the [Julia](http://www.julialang.org) source code for my [blog post](https://labpresse.com/code-optimization-in-scientific-research-part-i/). You can read this file directly but I highly recommend running it in an interactive fashion using [Pluto.jl](https://plutojl.org/)! 
+In this file I provide the [Julia](http://www.julialang.org) source code for my [blog post](https://labpresse.com/code-optimization-in-scientific-research-part-ii/). You can read this file directly but I highly recommend running it in an interactive fashion using [Pluto.jl](https://plutojl.org/)! 
 "
 
 # ╔═╡ 88b3549a-daf5-4793-972e-342843fab713
@@ -42,7 +42,7 @@ md"Finally, in order to provide reproducibility, we use `Random` and use 1 as th
 md"
 ## Variable preparation
 
-Let's assume in the images we are simulating there are $N$ emitters in the region of interest defined by $[0, L]\times[0, L]$. To be consistent with blog post, we use
+Let's assume in the images we are simulating there are $N$ emitters in the region of interest defined by $[0, L]\times[0, L]$, and $F$ frames. To be consistent with blog post, we use
 "
 
 # ╔═╡ 8f5a8953-3e99-4a62-9c0e-eb95aa87de80
@@ -56,7 +56,7 @@ F = 100
 
 # ╔═╡ 1884b3d7-9edd-47fe-beb2-a15dbc972c1a
 md"The functions described in my blog post (and defined below) each takes four arguments: `x`, `y`, `xᵖ`, and `yᵖ` such that:
-- `x` and `y` are vectors storing all emitters' $x$-positions and $y$-positions, respectively.
+- `x` and `y` are $N\times F$ arrays storing all emitters' $x$-positions and $y$-positions, respectively.
 - `xᵖ` and `yᵖ` are vectors storing all pixels' $x$-positions and $y$-positions, respectively.
 
 Here, we assume emitters are uniformly scattered in the region of interest,"
@@ -85,48 +85,54 @@ The function defined below are exactly the same as those in my blog post, but wi
 
 # ╔═╡ cb364b33-e653-463e-aa2d-6672af49b195
 function video_sim_v1(xᵖ, yᵖ, x, y)
-	F = size(x, 2)
-	v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
-	for f in 1:F
-    # construct the matrix PSFˣ such that PSFˣ[i,j] = exp(-(xᵖ[i]-x[j])²)
-    	PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
-    # construct the matrix PSFʸ such that PSFʸ[i,j] = exp(-(y[i]-yᵖ[j])²)
-    	PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
-    # matrix umltiplication
-		v[:,:,f] = PSFˣ * PSFʸ
-	end
+    # get number of frames
+    F = size(x, 2)
+    # allocate memory for the video
+    v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
+    for f in 1:F
+        # construct the matrix PSFˣ such that PSFˣ[i,j] = exp(-(xᵖ[i]-x[j])²)
+        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
+        # construct the matrix PSFʸ such that PSFʸ[i,j] = exp(-(y[i]-yᵖ[j])²)
+        PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
+        # matrix umltiplication
+        v[:, :, f] = PSFˣ * PSFʸ
+    end
     return v
 end
 
 # ╔═╡ e4d90b22-92bf-48c4-8ad9-6fcefcadb78d
 function video_sim_v2(xᵖ, yᵖ, x, y)
-	F = size(x, 2)
-	v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
-	@simd for f in 1:F
-    # construct the matrix PSFˣ such that PSFˣ[i,j] = exp(-(xᵖ[i]-x[j])²)
-    	PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
-    # construct the matrix PSFʸ such that PSFʸ[i,j] = exp(-(y[i]-yᵖ[j])²)
-    	PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
-    # matrix umltiplication
-		v[:,:,f] = PSFˣ * PSFʸ
-	end
+    F = size(x, 2)
+    v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
+    @simd for f in 1:F
+        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
+        PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
+        v[:, :, f] = PSFˣ * PSFʸ
+    end
     return v
 end
 
 # ╔═╡ 0991be84-7fe0-41ac-b5f8-a6a3f4f5a1dd
 function video_sim_v3(xᵖ, yᵖ, x, y)
-	F = size(x, 2)
-	v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
-	Threads.@threads for f in 1:F
-    # construct the matrix PSFˣ such that PSFˣ[i,j] = exp(-(xᵖ[i]-x[j])²)
-    	PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
-    # construct the matrix PSFʸ such that PSFʸ[i,j] = exp(-(y[i]-yᵖ[j])²)
-    	PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
-    # matrix umltiplication
-		v[:,:,f] = PSFˣ * PSFʸ
-	end
+    F = size(x, 2)
+    v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
+    Threads.@threads for f in 1:F
+        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
+        PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
+        v[:, :, f] = PSFˣ * PSFʸ
+    end
     return v
 end
+
+# ╔═╡ 491578b5-22c3-43a6-b7b0-ad9d29da8933
+md"
+## Multithreading check
+
+Before running our codes. Let's first make sure if the current Julia environment has enabled multithreading. This can be checked by the following output:
+"
+
+# ╔═╡ 239eb671-58ab-4dc8-bdc5-648d55cbcbb5
+print("There are ", Threads.nthreads(), " threads being used!")
 
 # ╔═╡ 5b069b3b-57c8-4fa0-b686-78a9dab5599c
 md"
@@ -137,22 +143,11 @@ Before benchmarking these functions we must ensure they yield the same result. T
 
 # ╔═╡ edfa3a10-0004-4d35-a8f4-d467f2c1fb58
 test_passed = begin
-    I₁ = image_sim_v1(xᵖ, yᵖ, x, y)
-    I₂ = image_sim_v2(xᵖ, yᵖ, x, y)
-    I₃ = image_sim_v3(xᵖ, yᵖ, x, y)
-    I₄ = image_sim_v4(xᵖ, yᵖ, x, y)
-    isequal(I₁, I₂) && isequal(I₂, I₃) && isequal(I₃, I₄)
+    V₁ = video_sim_v1(xᵖ, yᵖ, x, y)
+    V₂ = video_sim_v2(xᵖ, yᵖ, x, y)
+    V₃ = video_sim_v3(xᵖ, yᵖ, x, y)
+    isequal(V₁, V₂) && isequal(V₂, V₃)
 end
-
-# ╔═╡ e2d568f3-3599-478b-bef0-d3bc55c5dbdd
-md"Oh no! The pass has failed. Does this mean we have done something wrong? Not necessarily. As computers only have finite precision, it is expected that different algorithm may result in different outputs. We just need to make sure the difference is negligible. One way to do so is calculating the relative error regarding the actual value."
-
-# ╔═╡ b85954de-bd3f-4dca-bf53-fc426bf89c54
-largest_relative_error = max(
-    maximum(abs.(I₁ .- I₂) ./ I₁),
-    maximum(abs.(I₂ .- I₃) ./ I₂),
-    maximum(abs.(I₃ .- I₃) ./ I₄),
-)
 
 # ╔═╡ daf80e8f-4fc1-4082-8cb4-07a558eda235
 md"So we are safe!"
@@ -170,12 +165,6 @@ md"
 
 # ╔═╡ b14e8881-b28e-4973-a0ce-07a2730dd6a3
 @btime video_sim_v3($xᵖ, $yᵖ, $x, $y);
-
-# ╔═╡ 47c9b13e-2afd-45ea-9943-e382535fcf78
-@btime image_sim_v4($xᵖ, $yᵖ, $x, $y);
-
-# ╔═╡ 48789656-732a-4bbc-bdee-c74a48b7c5bd
-Threads.nthreads()
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -405,7 +394,7 @@ version = "17.4.0+0"
 # ╟─c0f2d3a6-9287-426d-823e-5455921a13f2
 # ╟─8f5a8953-3e99-4a62-9c0e-eb95aa87de80
 # ╟─3fe28940-af10-4ebb-af6b-edadf717120a
-# ╠═1c864177-cdb8-41ff-9975-e64f455578cd
+# ╟─1c864177-cdb8-41ff-9975-e64f455578cd
 # ╟─1884b3d7-9edd-47fe-beb2-a15dbc972c1a
 # ╠═deec64e2-117c-485a-866f-d2715e6bc101
 # ╠═5a1f660b-8ca7-44df-9de6-705aae390ce3
@@ -416,16 +405,14 @@ version = "17.4.0+0"
 # ╠═cb364b33-e653-463e-aa2d-6672af49b195
 # ╠═e4d90b22-92bf-48c4-8ad9-6fcefcadb78d
 # ╠═0991be84-7fe0-41ac-b5f8-a6a3f4f5a1dd
+# ╟─491578b5-22c3-43a6-b7b0-ad9d29da8933
+# ╟─239eb671-58ab-4dc8-bdc5-648d55cbcbb5
 # ╟─5b069b3b-57c8-4fa0-b686-78a9dab5599c
 # ╠═edfa3a10-0004-4d35-a8f4-d467f2c1fb58
-# ╟─e2d568f3-3599-478b-bef0-d3bc55c5dbdd
-# ╠═b85954de-bd3f-4dca-bf53-fc426bf89c54
 # ╟─daf80e8f-4fc1-4082-8cb4-07a558eda235
 # ╟─3e4d3ff5-e4e1-48bd-b2bf-7c5f2c7c444c
 # ╠═08c22964-393c-4778-b7be-84e852550279
 # ╠═a303e6ce-78ef-431e-919a-68013324ce98
 # ╠═b14e8881-b28e-4973-a0ce-07a2730dd6a3
-# ╠═47c9b13e-2afd-45ea-9943-e382535fcf78
-# ╠═48789656-732a-4bbc-bdee-c74a48b7c5bd
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
