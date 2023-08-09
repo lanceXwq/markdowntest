@@ -22,18 +22,18 @@ Based on the description so far, we can readily enclose a for-loop iterating ove
 
 ```julia
 function video_sim_v1(xᵖ, yᵖ, x, y)
-    F = size(x, 3)
+    F = size(x, 2)
     v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
     for f in 1:F
-        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, 1, f))) .^ 2)
-        PSFʸ = exp.(-(view(y, :, 1, f) .- Transpose(yᵖ)) .^ 2)
+        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
+        PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
         v[:, :, f] = PSFˣ * PSFʸ
     end
     return v
 end
 ```
 
-[^1]: `view(x, :, 1, f)` serves the same purpose as `x[:, 1, f]` but with smaller memory allocation.
+[^1]: `view(x, :, f)` serves the same purpose as `x[:, f]` but with smaller memory allocation.
 
 Two points to note in the code above:
 
@@ -66,11 +66,11 @@ In [Julia](https://julialang.org/), it is possible to enforce vectorization by e
 
 ```julia
 function video_sim_v2(xᵖ, yᵖ, x, y)
-    F = size(x, 3)
+    F = size(x, 2)
     v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
     @simd for f in 1:F
-        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, 1, f))) .^ 2)
-        PSFʸ = exp.(-(view(y, :, 1, f) .- Transpose(yᵖ)) .^ 2)
+        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
+        PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
         v[:, :, f] = PSFˣ * PSFʸ
     end
     return v
@@ -90,11 +90,11 @@ In Julia, multithreading a for-loop can be as easy as follows[^5]:
 
 ```julia
 function video_sim_v3(xᵖ, yᵖ, x, y)
-    F = size(x, 3)
+    F = size(x, 2)
     v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
     Threads.@threads for f in 1:F
-        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, 1, f))) .^ 2)
-        PSFʸ = exp.(-(view(y, :, 1, f) .- Transpose(yᵖ)) .^ 2)
+        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
+        PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
         v[:, :, f] = PSFˣ * PSFʸ
     end
     return v
