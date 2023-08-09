@@ -37,7 +37,7 @@ end
 
 Two points to note in the code above:
 
-- `x` and `y` are both arrays of dimensions $N\times1\times F$, where $N$ and $F$ represent the number of molecule and number of frames, respectively.
+- `x` and `y` are both arrays of dimensions $N\times F$, where $N$ and $F$ represent the number of molecule and number of frames, respectively.
 - It appears that we have made a bold assumption that all frames contain an equal number of molecules. However, this assumption is acceptable since molecules that should not appear in a frame can be positioned far away from the field-of-view, thereby making no contribution.
 
 Benchmarking `video_sim_v1` using a dataset comprising 20 molecules and 100 frames (each with 256$\times$256 pixels) yields `50.927 ms (1402 allocations: 123.47 MiB)`. Our overarching goal entails improving upon this benchmark.
@@ -54,28 +54,9 @@ Parallelizing an algorithm is much easier said than done. In view of the intrica
 
 [^2]: Please note that these concepts are not mutually exclusive.
 
-<!-- For each level, I pick one common scheme and demonstrate how my problem is tackled -->
-
-
-<!-- First, due to the complexity of modern computing facilities, parallelism nowadays can be achieved on roughly three levels: on a core, on a node, and on a cluster. -->
-
-<!-- , parallelism itself actually contains several distinct yet interconnected ideas.  -->
-
-
-<!-- While different communities may employ various terms, there are approximately three levels of parallelization schemes:  -->
-
-
-<!-- [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data), [multithreading](https://en.wikipedia.org/wiki/Multithreading_(computer_architecture)), and [multiprocessing](https://en.wikipedia.org/wiki/Multiprocessing). In the subsequent sections, I will discuss and demonstrate each of these methods. -->
-
-<!-- [^1]: Navigating the realm of parallelization schemes can be likened to delving into a rabbit hole :rabbit:, especially for individuals without an expert background. These schemes manifest at different hierarchical levels and, in my personal perspective, often sport comparable and bewildering nomenclature. Within this context, I have chosen to spotlight three common types for "everyday" users. -->
-
 ### Core-level
 
 This initial question that may arise is: how is it possible to achieve parallelism on a single core? To illustrate this, let's consider a situation where a program operates on 64-bit integers, and a processor core possesses the capability to fetch 256 bits of data in a solitary operation. In such a scenario, it becomes viable to load four integers as a vector and perform a singular vectorized iteration of the original operation. This could potentially yield a theoretical speedup of fourfold[^3]. This particular approach to parallelization is commonly known as "[single instruction, multiple data](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)" (SIMD).
-
-<!-- is it possible for a single core to run an algorithm in parallel. One example is to consider a scenario where a program works with 64-bit integers, and a processor core has the capability to load 256 bits of data in a single operation. In this scenario, it becomes feasible to load four integers as a vector and execute a single vectorized version of the original operation, potentially resulting in a theoretical speedup of four times. This specific parallelization scheme is often referred to as "[single instruction, multiple data](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)", or just SIMD for short. -->
-
-<!-- SIMD is an acronym that stands for "single instruction multiple data". While intricate specifics concerning the implementation of SIMD can be explored in other sources, its fundamental concept remains remarkably straightforward. Consider a scenario where a program works with 64-bit integers, and a processor core has the capability to load 256 bits of data in a single operation. In this scenario, it becomes feasible to load four integers as a vector and execute a single vectorized version of the original operation, potentially resulting in a theoretical speedup of four times[^2]. -->
 
 [^3]: You should now recognize that SIMD is closely related to vectorization (introduced in [my previous blog](https://labpresse.com/code-optimization-in-scientific-research-part-i/#vectorization)). In fact, vectorization constitutes a specific implementation of SIMD principles.
 
@@ -134,4 +115,8 @@ With the concept of multithreading in mind, we can easily comprehend multiproces
     <img src="fig1.png">
 </p>
 
-While I aimed to maintain a surface-level discourse in my blog, it is totally reasonable to feel confused when deciding upon a parallelization scheme. :smile: The crucial factor to bear in mind is that an escalation in the number of processors engaged directly corresponds to an increase in communication costs. This rise in costs can potentially overshadow the performance benefits gained from task distribution.
+While I aimed to maintain a surface-level discourse in my blog, it is totally reasonable to feel confused when deciding upon a parallelization scheme. :smile: The crucial factor to bear in mind is that an escalation in the number of processors engaged directly corresponds to an increase in communication overhead. This rise in overhead can potentially overshadow the performance benefits gained from task distribution.
+
+As of the post date of this blog, it is generally advisable to experiment with SIMD and multithreading in your code, as they are relatively easier to test. On the other hand, when it comes to multiprocessing, it is recommended to consider its implementation only when each discrete task consumes several seconds to execute, and the level of inter-process communication remains minimal.
+
+Although it has been a long journey, our quest remains incomplete. There is one more concept, which is gaining popularity in recent years, that we can test. In the third part of my blog, I will discuss GPU computation.

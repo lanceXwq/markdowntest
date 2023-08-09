@@ -62,10 +62,10 @@ md"The functions described in my blog post (and defined below) each takes four a
 Here, we assume emitters are uniformly scattered in the region of interest,"
 
 # ╔═╡ deec64e2-117c-485a-866f-d2715e6bc101
-x = L * rand(N,1,F)
+x = L * rand(N, F)
 
 # ╔═╡ 5a1f660b-8ca7-44df-9de6-705aae390ce3
-y = L * rand(N,1,F)
+y = L * rand(N, F)
 
 # ╔═╡ 63e80403-4364-429b-9491-f3db9ef8cb60
 md"Then, for `xᵖ` and `yᵖ`, we assume the area is monitored by $256\times256$ pixels of the same dimensions,"
@@ -83,30 +83,15 @@ md"
 The function defined below are exactly the same as those in my blog post, but with more explanatory comments.
 "
 
-# ╔═╡ b45e5739-4cd0-42a5-b5ef-916fc9bd8395
-function video_sim_v0(xᵖ, yᵖ, x, y)
-	F = size(x,3)
-	v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
-	for f in 1:F
-    # construct the matrix PSFˣ such that PSFˣ[i,j] = exp(-(xᵖ[i]-x[j])²)
-    	PSFˣ = exp.(-(xᵖ .- Transpose(x[:, 1, f])) .^ 2)
-    # construct the matrix PSFʸ such that PSFʸ[i,j] = exp(-(y[i]-yᵖ[j])²)
-    	PSFʸ = exp.(-(y[:, 1, f] .- Transpose(yᵖ)) .^ 2)
-    # matrix umltiplication
-		v[:,:,f] = PSFˣ * PSFʸ
-	end
-    return v
-end
-
 # ╔═╡ cb364b33-e653-463e-aa2d-6672af49b195
 function video_sim_v1(xᵖ, yᵖ, x, y)
-	F = size(x,3)
+	F = size(x, 2)
 	v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
 	for f in 1:F
     # construct the matrix PSFˣ such that PSFˣ[i,j] = exp(-(xᵖ[i]-x[j])²)
-    	PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, 1, f))) .^ 2)
+    	PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
     # construct the matrix PSFʸ such that PSFʸ[i,j] = exp(-(y[i]-yᵖ[j])²)
-    	PSFʸ = exp.(-(view(y, :, 1, f) .- Transpose(yᵖ)) .^ 2)
+    	PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
     # matrix umltiplication
 		v[:,:,f] = PSFˣ * PSFʸ
 	end
@@ -115,13 +100,13 @@ end
 
 # ╔═╡ e4d90b22-92bf-48c4-8ad9-6fcefcadb78d
 function video_sim_v2(xᵖ, yᵖ, x, y)
-	F = size(x,3)
+	F = size(x, 2)
 	v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
 	@simd for f in 1:F
     # construct the matrix PSFˣ such that PSFˣ[i,j] = exp(-(xᵖ[i]-x[j])²)
-    	PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, 1, f))) .^ 2)
+    	PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
     # construct the matrix PSFʸ such that PSFʸ[i,j] = exp(-(y[i]-yᵖ[j])²)
-    	PSFʸ = exp.(-(view(y, :, 1, f) .- Transpose(yᵖ)) .^ 2)
+    	PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
     # matrix umltiplication
 		v[:,:,f] = PSFˣ * PSFʸ
 	end
@@ -130,27 +115,17 @@ end
 
 # ╔═╡ 0991be84-7fe0-41ac-b5f8-a6a3f4f5a1dd
 function video_sim_v3(xᵖ, yᵖ, x, y)
-	F = size(x,3)
+	F = size(x, 2)
 	v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
 	Threads.@threads for f in 1:F
     # construct the matrix PSFˣ such that PSFˣ[i,j] = exp(-(xᵖ[i]-x[j])²)
-    	PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, 1, f))) .^ 2)
+    	PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
     # construct the matrix PSFʸ such that PSFʸ[i,j] = exp(-(y[i]-yᵖ[j])²)
-    	PSFʸ = exp.(-(view(y, :, 1, f) .- Transpose(yᵖ)) .^ 2)
+    	PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
     # matrix umltiplication
 		v[:,:,f] = PSFˣ * PSFʸ
 	end
     return v
-end
-
-# ╔═╡ 36f58111-5478-4b3b-9bf7-0db78b8507ea
-function image_sim_v4(xᵖ, yᵖ, x, y)
-    # construct the matrix PSFˣ such that PSFˣ[i,j] = exp(-(xᵖ[i]-x[j])²)
-    PSFˣ = exp.(-(xᵖ .- Transpose(x)) .^ 2)
-    # construct the matrix PSFʸ such that PSFʸ[i,j] = exp(-(y[i]-yᵖ[j])²)
-    PSFʸ = exp.(-(y .- Transpose(yᵖ)) .^ 2)
-    # matrix umltiplication
-    return PSFˣ * PSFʸ
 end
 
 # ╔═╡ 5b069b3b-57c8-4fa0-b686-78a9dab5599c
@@ -186,9 +161,6 @@ md"So we are safe!"
 md"
 ## Benchmarks
 "
-
-# ╔═╡ 800f6c5b-7218-4bc5-bdd7-5052c7821c52
-@btime video_sim_v0($xᵖ, $yᵖ, $x, $y);
 
 # ╔═╡ 08c22964-393c-4778-b7be-84e852550279
 @btime video_sim_v1($xᵖ, $yᵖ, $x, $y);
@@ -441,18 +413,15 @@ version = "17.4.0+0"
 # ╠═e0e98d13-6762-479a-9d6d-a1a510b0f3b4
 # ╠═067953bc-5628-4342-af4a-f2b44bcdaf9e
 # ╟─9e43601a-a7ea-4c75-97db-fb6f4d2610e2
-# ╠═b45e5739-4cd0-42a5-b5ef-916fc9bd8395
 # ╠═cb364b33-e653-463e-aa2d-6672af49b195
 # ╠═e4d90b22-92bf-48c4-8ad9-6fcefcadb78d
 # ╠═0991be84-7fe0-41ac-b5f8-a6a3f4f5a1dd
-# ╠═36f58111-5478-4b3b-9bf7-0db78b8507ea
 # ╟─5b069b3b-57c8-4fa0-b686-78a9dab5599c
 # ╠═edfa3a10-0004-4d35-a8f4-d467f2c1fb58
 # ╟─e2d568f3-3599-478b-bef0-d3bc55c5dbdd
 # ╠═b85954de-bd3f-4dca-bf53-fc426bf89c54
 # ╟─daf80e8f-4fc1-4082-8cb4-07a558eda235
 # ╟─3e4d3ff5-e4e1-48bd-b2bf-7c5f2c7c444c
-# ╠═800f6c5b-7218-4bc5-bdd7-5052c7821c52
 # ╠═08c22964-393c-4778-b7be-84e852550279
 # ╠═a303e6ce-78ef-431e-919a-68013324ce98
 # ╠═b14e8881-b28e-4973-a0ce-07a2730dd6a3
