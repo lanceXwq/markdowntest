@@ -14,7 +14,7 @@
 
 In [my previous blog](https://labpresse.com/code-optimization-in-scientific-research-part-i/), I introduced some straightforward yet valuable optimization techniques. While these techniques are generally suitable for relatively simple problems, such as the example presented in my previous blog, they may prove inadequate when dealing with more complex and realistic issues. Specifically, in the previous example, my objective was to simulate a single-molecule microscope image. However, people frequently need to process multiple independent images (e.g., frames in a video). In this blog, I will discuss additional techniques within the context of this video simulation problem.
 
-To quickly recap, the previous example involves calculating the total contribution, labeled as $I$, from all molecules. These molecules are indexed by $n$, and they relate to each pixel, which is indexed by $i$ and $j$. Referring to the assumptions discussed earlier, we can express the algorithm's mathematical form as follows: $$I_{ij}=\sum_n \exp[-(x^p_i-x_n)^2-(y^p_j-y_n)^2].$$ Now, shifting our focus to the present issue that involves multiple independent images (or frames), we extend the same calculation to each individual image, denoted as $f$. As a result, the mathematical representation for this new problem takes the following shape (where $V$ stands for video): $$V_{fij}=\sum_n \exp[-(x^p_{fi}-x_{fn})^2-(y^p_{fj}-y_{fn})^2].$$  
+To quickly recap, the previous example involves calculating the total contribution, labeled as $I$, from all molecules. These molecules are indexed by $n$, and they relate to each pixel, which is indexed by $i$ and $j$. Referring to the assumptions discussed earlier, we can express the algorithm's mathematical form as follows: $$I_{ij}=\sum_n \exp[-(x^p_i-x_n)^2-(y^p_j-y_n)^2].$$ Now, shifting our focus to the present issue that involves multiple independent images (or frames), we extend the same calculation to each individual image, denoted as $f$. As a result, the mathematical representation for this new problem takes the following shape (where $V$ stands for video): $$V_{fij}=\sum_n \exp[-(x^p_{fi}-x_{fn})^2-(y^p_{fj}-y_{fn})^2].$$
 
 ## The first implementation
 
@@ -23,13 +23,13 @@ Based on the description so far, we can readily enclose a for-loop iterating ove
 ```julia
 function video_sim_v1(xᵖ, yᵖ, x, y)
     F = size(x, 2)
-    v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
+    V = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
     for f in 1:F
         PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
         PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
-        v[:, :, f] = PSFˣ * PSFʸ
+        V[:, :, f] = PSFˣ * PSFʸ
     end
-    return v
+    return V
 end
 ```
 
@@ -39,6 +39,10 @@ Two points to note in the code above:
 
 - `x` and `y` are both arrays of dimensions $N\times F$, where $N$ and $F$ represent the number of molecule and number of frames, respectively.
 - It appears that we have made a bold assumption that all frames contain an equal number of molecules. However, this assumption is acceptable since molecules that should not appear in a frame can be positioned far away from the field-of-view, thereby making no contribution.
+
+<p align="center" height="60%">
+    <img src="fig_loop.png">
+</p>
 
 Benchmarking `video_sim_v1` using a dataset comprising 20 molecules and 100 frames (each with 256$\times$256 pixels) yields `50.927 ms (1402 allocations: 123.47 MiB)`. Our overarching goal entails improving upon this benchmark.
 
@@ -67,13 +71,13 @@ In [Julia](https://julialang.org/), it is possible to enforce vectorization by e
 ```julia
 function video_sim_v2(xᵖ, yᵖ, x, y)
     F = size(x, 2)
-    v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
+    V = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
     @simd for f in 1:F
         PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
         PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
-        v[:, :, f] = PSFˣ * PSFʸ
+        V[:, :, f] = PSFˣ * PSFʸ
     end
-    return v
+    return V
 end
 ```
 
@@ -91,13 +95,13 @@ In Julia, multithreading a for-loop can be as easy as follows[^5]:
 ```julia
 function video_sim_v3(xᵖ, yᵖ, x, y)
     F = size(x, 2)
-    v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
+    V = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
     Threads.@threads for f in 1:F
         PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
         PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
-        v[:, :, f] = PSFˣ * PSFʸ
+        V[:, :, f] = PSFˣ * PSFʸ
     end
-    return v
+    return V
 end
 ```
 
