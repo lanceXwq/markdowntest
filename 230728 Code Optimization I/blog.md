@@ -119,6 +119,10 @@ After this brief re-organization of math, we have arrived at an expression that 
 2. Perform a matrix multiplication between $PSF^x$ and $PSF^y$.
 [^1]: Refer to [this webpage](https://www.mathworks.com/help/matlab/matlab_prog/compatible-array-sizes-for-basic-operations.html) for compatible array sizes regarding array subtraction and more.
 
+<p align="center" height="100%">
+    <img src="fig_vec.png">
+</p>
+
 In Julia code, we have
 
 ```julia
