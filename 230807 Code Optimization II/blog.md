@@ -18,6 +18,10 @@ To quickly recap, the previous example involves calculating the total contributi
 
 ## The first implementation
 
+<p align="center" height="100%">
+    <img src="fig_loop.png">
+</p>
+
 Based on the description so far, we can readily enclose a for-loop iterating over $f$ around the previously optimized code to create the initial version of our single-molecule video simulation code[^1]:
 
 ```julia
@@ -39,10 +43,6 @@ Two points to note in the code above:
 
 - `x` and `y` are both arrays of dimensions $N\times F$, where $N$ and $F$ represent the number of molecule and number of frames, respectively.
 - It appears that we have made a bold assumption that all frames contain an equal number of molecules. However, this assumption is acceptable since molecules that should not appear in a frame can be positioned far away from the field-of-view, thereby making no contribution.
-
-<p align="center" height="60%">
-    <img src="fig_loop.png">
-</p>
 
 Benchmarking `video_sim_v1` using a dataset comprising 20 molecules and 100 frames (each with 256$\times$256 pixels) yields `50.927 ms (1402 allocations: 123.47 MiB)`. Our overarching goal entails improving upon this benchmark.
 
