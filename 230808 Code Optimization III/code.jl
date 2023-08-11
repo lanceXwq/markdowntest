@@ -9,7 +9,7 @@ using Flux
 
 using Test
 
-function video_sim_CPU(xᵖ, yᵖ, x, y)
+function video_sim_v3(xᵖ, yᵖ, x, y)
     F = size(x, 2)
     v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
     Threads.@threads for f in 1:F
@@ -41,14 +41,23 @@ N = 20
 L = 20
 F = 100
 
-x = L * rand(N, F)
-y = L * rand(N, F)
+# Float64 version
+x = L * rand(Float64, N, F)
+y = L * rand(Float64, N, F)
 
-xᵖ = range(0, L, 256)
-yᵖ = range(0, L, 256)
+xᵖ = Float64.(collect(range(0, L, 256)))
+yᵖ = Float64.(collect(range(0, L, 256)))
 
-V₁ = @btime video_sim_CPU($xᵖ, $yᵖ, $x, $y)
-V₂ = @btime video_sim_GPU_v1($xᵖ, $yᵖ, CuArray($x), CuArray($y))
-V₃ = @btime CUDA.@sync video_sim_GPU_v2($xᵖ, $yᵖ, CuArray($x), CuArray($y))
+# Float32 version
+x = L * rand(Float32, N, F)
+y = L * rand(Float32, N, F)
+
+xᵖ = Float32.(collect(range(0, L, 256)))
+yᵖ = Float32.(collect(range(0, L, 256)))
+
+V₁ = @btime video_sim_v3($xᵖ, $yᵖ, $x, $y)
+# video_sim_GPU_v1($xᵖ, $yᵖ, CuArray($x), CuArray($y))
+V₂ = @btime video_sim_GPU_v2($xᵖ, $yᵖ, $x, $y)
+V₃ = @btime CUDA.@sync video_sim_GPU_v2(CuArray($xᵖ), CuArray($yᵖ), CuArray($x), CuArray($y))
 
 @test isequal(V₁, V₂) && isequal(V₂, V₃)

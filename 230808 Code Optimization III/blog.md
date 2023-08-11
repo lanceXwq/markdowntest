@@ -4,13 +4,10 @@
   - [Introduction and recap](#introduction-and-recap)
   - [Run code on a GPU](#run-code-on-a-gpu)
     - [First attempt](#first-attempt)
-  - [The first implementation](#the-first-implementation)
-  - [Optimization ideas](#optimization-ideas)
-  - [Parallelism](#parallelism)
-    - [Core-level](#core-level)
-    - [Node-level](#node-level)
-    - [Cluster-level](#cluster-level)
-    - [Key consideration](#key-consideration)
+    - [Further vectorization](#further-vectorization)
+    - [Batch matrix multiplication](#batch-matrix-multiplication)
+    - [Final boost](#final-boost)
+  - [Conclusion](#conclusion)
 
 ## Introduction and recap
 
@@ -44,7 +41,7 @@ function video_sim_v3(xᵖ, yᵖ, x, y)
 end
 ```
 
-Eventually, `video_sim_v3` yielded a benchmark of `12.925 ms (1450 allocations: 123.47 MiB)` on my eight-thread Intel i7 7700K.
+Eventually, `video_sim_v3` yields a benchmark of `12.925 ms (1450 allocations: 123.47 MiB)` on my eight-thread Intel i7 7700K.
 
 [^1]: In case you haven't read the preceding blogs, I strongly encourage you to take a moment to review their problem description sections. This will provide you with a better picture of the issue I'm trying to address.
 
@@ -68,139 +65,52 @@ At the moment, the three leading companies in chips, Nvidia, AMD, and Intel, all
 
 ### First attempt
 
-Once the installation of `CUDA.jl` is completed, verified, and loaded, to run `video_sim_v1` on an Nvidia GPU we simply need to pass arguments as CUDA arrays such as `video_sim_v1(xᵖ, yᵖ, CuArray(x), CuArray(y))`.
+Once the installation of `CUDA.jl` is completed, verified, and loaded, to run `video_sim_v1` on an Nvidia GPU we simply need to pass arguments as CUDA arrays such as `video_sim_v1(CuArray(xᵖ), CuArray(yᵖ), CuArray(x), CuArray(y))`.
 
-You may expect magic to happen but a warning (or sometimes an error) pops up regarding `performing scalar indexing on task`. What's more, the warning message also says `such implementations *do not* execute on the GPU, but very slowly on the CPU`, indicating our first attempt has failed.
+You may expect magic to happen but a warning (or sometimes an error) pops up regarding `performing scalar indexing on task`. What's more, the warning message also says `such implementations *do not* execute on the GPU, but very slowly on the CPU`, indicating our first attempt has failed. The cause behind this failure is clear from the warning message: CUDA does not accept scalar indexing of a GPU array, like `v[:, :, f]`. Consequently, the solution entails a complete vectorization of the code, eliminating the need for the for-loop iteration over $f$.
 
-The reason for this failure is clear from the warning message: CUDA does not accept scalar indexing of a GPU array such as `v[:, :, f]`, which basically means we have to fully vectorize the code 
+### Further vectorization
 
-
-
-has become more popular
-
-
- in recent years especially in the deep learning community. 
-
-
-
-In this blog I will briefly explain what type of tasks suits GPUs and show, as an example, how I accelerated a calculation in my research using GPUs.
-
-
-GPU computation, despite being very powerful, is not a key that opens all locks. To understand when to seek help from GPUs we can refer to words from the experts at 
-
-Therefore, the first (and perhaps the most important) step is to recognize if a problem can be solved as many independent sub-problems. A simple example of such a problem is matrix multiplication $C=AB$, as each entry of $C$ is calculated independently via $c_{ij}=\sum_k a_{ik}b_{kj}$.
-
- with low communication overhead. In fact, such a tool exists and it is the GPU.
-
-1. The formula above does not correspond to any basic vector, matrix, or tensor operation, making full vectorization difficult.
-
-In a perfe
-
-[my previous blog](https://labpresse.com/code-optimization-in-scientific-research-part-i/), I introduced some straightforward yet valuable optimization techniques. While these techniques are generally suitable for relatively simple problems, such as the example presented in my previous blog, they may prove inadequate when dealing with more complex and realistic issues. Specifically, in the previous example, my objective was to simulate a single-molecule microscope image. However, people frequently need to process multiple independent images (e.g., frames in a video). In this blog, I will discuss additional techniques within the context of this video simulation problem.
-
-To quickly recap, the previous example involves calculating the total contribution, labeled as $I$, from all molecules. These molecules are indexed by $n$, and they relate to each pixel, which is indexed by $i$ and $j$. Referring to the assumptions discussed earlier, we can express the algorithm's mathematical form as follows: $$I_{ij}=\sum_n \exp[-(x^p_i-x_n)^2-(y^p_j-y_n)^2].$$ Now, shifting our focus to the present issue that involves multiple independent images (or frames), we extend the same calculation to each individual image, denoted as $f$. As a result, the mathematical representation for this new problem takes the following shape (where $V$ stands for video): $$V_{fij}=\sum_n \exp[-(x^p_{fi}-x_{fn})^2-(y^p_{fj}-y_{fn})^2].$$  
-
-## The first implementation
-
-Based on the description so far, we can readily enclose a for-loop iterating over $f$ around the previously optimized code to create the initial version of our single-molecule video simulation code[^1]:
-
-```julia
-function video_sim_v1(xᵖ, yᵖ, x, y)
-    F = size(x, 2)
-    v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
-    for f in 1:F
-        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
-        PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
-        v[:, :, f] = PSFˣ * PSFʸ
-    end
-    return v
-end
-```
-
-[^1]: `view(x, :, f)` serves the same purpose as `x[:, f]` but with smaller memory allocation.
-
-Two points to note in the code above:
-
-- `x` and `y` are both arrays of dimensions $N\times F$, where $N$ and $F$ represent the number of molecule and number of frames, respectively.
-- It appears that we have made a bold assumption that all frames contain an equal number of molecules. However, this assumption is acceptable since molecules that should not appear in a frame can be positioned far away from the field-of-view, thereby making no contribution.
-
-Benchmarking `video_sim_v1` using a dataset comprising 20 molecules and 100 frames (each with 256$\times$256 pixels) yields `50.927 ms (1402 allocations: 123.47 MiB)`. Our overarching goal entails improving upon this benchmark.
-
-## Optimization ideas
-
-Before exploring new techniques, let's take a moment to consider whether we can apply anything from [my previous blog](https://labpresse.com/code-optimization-in-scientific-research-part-i/). Since we have only added one extra loop, there isn't much opportunity to reduce memory allocation. What's more, this extra loop cannot be easily eliminated through vectorization, as the formula specified here doesn't align with basic matrix (or tensor) operations. Consequently, we must use other techniques to tackle this challenge.
-
-In this video simulation problem, it is important to note that all frames are independent of each other. As a result, there is potential to simulate frames simultaneously, or in other words, in parallel.
-
-## Parallelism
-
-Parallelizing an algorithm is much easier said than done. In view of the intricate nature of contemporary computational infrastructures, attaining parallelism in the present era involves three major tiers: core-level parallelism, node-level parallelism, and cluster-level parallelism[^2]. In the upcoming sections, I will delve into a single common scheme within each tier and examine its relevance within the context of our specific problem.
-
-[^2]: Please note that these concepts are not mutually exclusive.
-
-### Core-level
-
-This initial question that may arise is: how is it possible to achieve parallelism on a single core? To illustrate this, let's consider a situation where a program operates on 64-bit integers, and a processor core possesses the capability to fetch 256 bits of data in a solitary operation. In such a scenario, it becomes viable to load four integers as a vector and perform a singular vectorized iteration of the original operation. This could potentially yield a theoretical speedup of fourfold[^3]. This particular approach to parallelization is commonly known as "[single instruction, multiple data](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)" (SIMD).
-
-[^3]: You should now recognize that SIMD is closely related to vectorization (introduced in [my previous blog](https://labpresse.com/code-optimization-in-scientific-research-part-i/#vectorization)). In fact, vectorization constitutes a specific implementation of SIMD principles.
-
-The straightforward concept of SIMD, on one hand, allows numerous modern programming languages to identify points within an algorithm where SIMD can be employed and subsequently apply it automatically. On the other hand, SIMD is frequently constrained to basic operations such as addition or multiplication. Hence, the potential enhancement of `video_sim_v1` through this method remains uncertain. Nevertheless, in this scenario, an attempt must be made to explore the possibilities.
-
-In [Julia](https://julialang.org/), it is possible to enforce vectorization by employing the `@simd` macro, placed before a for-loop involving independent iterations. This technique results in the creation of `video_sim_v2`:
-
-```julia
-function video_sim_v2(xᵖ, yᵖ, x, y)
-    F = size(x, 2)
-    v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
-    @simd for f in 1:F
-        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
-        PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
-        v[:, :, f] = PSFˣ * PSFʸ
-    end
-    return v
-end
-```
-
-A benchmark analysis yields a result of `51.017 ms (1402 allocations: 123.47 MiB)`, indicating a lack of performance improvement. It seems that Julia has indeed automatically vectorized the code in this case.
-
-### Node-level
-
-Moving up a level there is parallelism on a node (often a computer), which is often achieved through [multithreading](https://en.wikipedia.org/wiki/Multithreading_(computer_architecture)). For multithreading, we require multiple processors (either physical or virtual[^4]), with each core being associated with a separate thread. Multithreading facilitates the simultaneous execution of these processors, all while utilizing the same memory pool. It is important to note that the implementation of multithreading demands careful consideration to avoid conflicts between threads. Fortunately, developers have often shouldered much of this responsibility, alleviating users of this burden.
-
-[^4]: For example, see [hyper-threading](https://en.wikipedia.org/wiki/Hyper-threading)
-
-In Julia, multithreading a for-loop can be as easy as follows[^5]:
-[^5]: In order to enable multithreading, certain programming languages may require additional parameters during startup. You can find instructions on how to accomplish this in Julia on [this page](https://docs.julialang.org/en/v1/manual/multi-threading/) shows how to do it in Julia.
-
-```julia
-function video_sim_v3(xᵖ, yᵖ, x, y)
-    F = size(x, 2)
-    v = Array{eltype(x),3}(undef, length(xᵖ), length(yᵖ), F)
-    Threads.@threads for f in 1:F
-        PSFˣ = exp.(-(xᵖ .- Transpose(view(x, :, f))) .^ 2)
-        PSFʸ = exp.(-(view(y, :, f) .- Transpose(yᵖ)) .^ 2)
-        v[:, :, f] = PSFˣ * PSFʸ
-    end
-    return v
-end
-```
-
-My desktop computer is equipped with four physical CPU cores, which translate into eight threads. When assessing the benchmark of `video_sim_v3` with all eight threads, the results demonstrate a remarkable speedup of almost four times comparing to `video_sim_v1`, clocking in at `12.925 ms (1450 allocations: 123.47 MiB)`.
-
-### Cluster-level
-
-Now assume you have access to a cluster, which is not uncommon for universities and institutes nowadays, you could even consider modifying the algorithm to execute across multiple processors spanning numerous computers. A frequently employed strategy involves the utilization of [multiprocessing](https://en.wikipedia.org/wiki/Multiprocessing).
-
-With the concept of multithreading in mind, we can easily comprehend multiprocessing as the simultaneous operation of multiple processors, where each core has access only to its designated memory space. This fundamental distinction from multithreading requires some "coding maneuvers" as users are now compelled to determine the allocation of data to individual processors. In the context of our example problem, implementing multiprocessing requires some rather major change of the code, contradicting the very impetus driving my blog posts. Therefore, I only provide a preliminary example in [this GitHub repository of mine]().
-
-### Key consideration
+As stated multiple times thus far, our problem does not align directly with any basic vector operation. However, we can be clever and slightly restructure our data, enabling the potential for vectorization. An approach to achieve this is illustrated in the following figure.
 
 <p align="center" height="100%">
     <img src="fig1.png">
 </p>
 
-While I aimed to maintain a surface-level discourse in my blog, it is totally reasonable to feel confused when deciding upon a parallelization scheme. :smile: The crucial factor to bear in mind is that an escalation in the number of processors engaged directly corresponds to an increase in communication overhead. This rise in overhead can potentially overshadow the performance benefits gained from task distribution.
+Here, $PSF^x$, $PSF^y$, and $V$ are restructured as block-diagonal matrices. Blocks sharing the same color correspond to the same frame, while any remaining elements within these matrices are set to zero, visually represented as white-colored sections. As a result, all the frames can be simulated through one matrix multiplication.
 
-As of the post date of this blog, it is generally advisable to experiment with SIMD and multithreading in your code, as they are relatively easier to test. On the other hand, when it comes to multiprocessing, it is recommended to consider its implementation only when each discrete task consumes several seconds to execute, and the level of inter-process communication remains minimal.
+While this approach is indeed valid, I would not recommend implementing it by yourselves. This is due to the potentially vast dimensions of these block matrices. A naive implementation lacking efficient memory allocation handling could greatly worsen overall performance.
 
-Although it has been a long journey, our quest remains incomplete. There is one more concept, which is gaining popularity in recent years, that we can test. In the third part of my blog, I will discuss GPU computation.
+Are there better solutions? The answer is yes. This problem we are facing, namely numerous independent (and typically small) matrix multiplications of identical sizes, is not unique to us. In fact, it is common enough that people have named it "batch matrix multiplication".
+
+### Batch matrix multiplication
+
+<p align="center" height="100%">
+    <img src="fig2.png">
+</p>
+
+Although batch matrix multiplication is widely recognized and efficiently implemented, it may not always be easy to find the correct function within your programming language. Occasionally, batch matrix multiplication goes by different names. For instance, in MATLAB, it is referred to as "[page-wise matrix multiplication](https://www.mathworks.com/help/matlab/ref/pagemtimes.html)". In certain cases, additional packages are required, and quite often, these packages belong deep-learning libraries! In Python, you can call `torch.bmm` from [PyTorch](https://pytorch.org/docs/stable/generated/torch.bmm.html), while Julia offers `batched_mul` through [Flux.jl](https://fluxml.ai/Flux.jl/stable/models/nnlib/#NNlib.batched_mul). Using `batched_mul`, we can write a new code as follows:
+
+```julia
+function video_sim_GPU_v2(xᵖ, yᵖ, x, y)
+    PSFˣ = exp.(-(reshape(x, 1, size(x)...) .- xᵖ) .^ 2)
+    PSFʸ = exp.(-(reshape(y, 1, size(y)...) .- yᵖ) .^ 2)
+    return batched_mul(PSFˣ, batched_adjoint(PSFʸ))
+end
+```
+
+Here, `reshape` is called to construct `PSFˣ` and `PSFˣ` as 3D arrays, and `batched_adjoint` is just the "batched" version of transpose.
+
+Benchmarking `video_sim_GPU_v2` on my CPU (i7 7700K) and my GPU (GeForce GTX 1060) yield `9.550 ms (75 allocations: 73.44 MiB)` and `3.127 ms (9 GPU allocations: 73.468 MiB`[^4], respectively. Both of them are beating the multithreaded `video_sim_v3`!
+
+### Final boost
+
+The benchmarks I've showcased so far are based on double-precision float-point (float64) numbers. However, GPUs are frequently optimized for single-precision float-point (float32) numbers. For instance, once switched to using float32, `video_sim_GPU_v2`'s benchmark becomes `660.627 μs (11 GPU allocations: 36.736 MiB)`, another fivefold acceleration!
+
+Therefore, it is frequently advantageous to craft your GPU code to support both float64 and float32, and then assess whether altering the datatype affects your outcome. If there's no impact, simply proceed with float32!
+
+[^4]: GPU memory allocation is measured by `CUDA.@time`, see this [page](https://cuda.juliagpu.org/stable/development/profiling/).
+
+## Conclusion
+
+Finally, we have arrived at the conclusion of my blog series concerning optimization techniques for scientific computation. I hope you have enjoyed this journey and learned something useful. Please feel free to get in touch with me should you wish to connect or share your thoughts!
