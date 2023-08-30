@@ -40,6 +40,9 @@ for i in 1:L
     n3[i] = categorical_sampler3(logp)
 end
 
-@btime categorical_sampler1(softmax($logp))
-@btime categorical_sampler2($logp)
-@btime categorical_sampler3($logp)
+f = Figure()
+ax = Axis(f[1, 1])
+hist!(ax, n1)
+hist!(ax, n2)
+hist!(ax, n3)
+f
