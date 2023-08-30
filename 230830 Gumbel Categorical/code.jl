@@ -1,5 +1,4 @@
 using LogExpFunctions
-using BenchmarkTools
 using GLMakie
 
 function categorical_sampler1(p)
@@ -28,7 +27,13 @@ function categorical_sampler3(logp)
     return n
 end
 
-logp = log.(rand(10))
+function categorical_sampler4(logp)
+    x = -cloglog.(rand(length(logp)))
+    (~, n) = findmax(x .+ logp)
+    return n
+end
+
+logp = log.(rand(100) .* pi .* 1e3)
 L = 10000
 n1 = zeros(Int, L)
 n2 = zeros(Int, L)

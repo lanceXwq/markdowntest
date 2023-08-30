@@ -73,11 +73,9 @@ Therefore,
      & =\int_{-\infty}^\infty\mathrm{d}x_n \exp\left(-x_n\right) \exp\left[-\exp\left(-x_n\right)-\frac{\sum_{m=1,m\neq n}^N p_m}{p_n}\exp\left(-x_n\right)\right]\nonumber \\
      & =\int_{-\infty}^\infty\mathrm{d}x_n \exp\left(-x_n\right) \exp\left[-\frac{\sum_{m=1}^N p_m}{p_n}\exp\left(-x_n\right)\right].
 \end{align}
-At first this integral may seem intimidating, however, it can be evaluated through the simple substitution of $u=\exp\left(-x_n\right)$:
+At first this integral may seem intimidating, however, it can be evaluated through the simple substitution of $u=\exp\left(-x_n\right)$, and the final result is what we are looking for:
 \begin{align}
      & P\left(n=\argmax_m\left(x_m+\ln p_m\right)\right)=\int_0^\infty\mathrm{d}u \exp\left(-\frac{\sum_{m=1}^N p_m}{p_n}u\right)=\frac{p_n}{\sum_{m=1}^N p_m}.\label{eq:result}
 \end{align}
-
-From \cref{eq:result}, it is clear that the probability of $n$ being the index that maximizes $x_n+\ln p_n$ is equal to the normalized event probability of category $n$. In other words, to sample from a categorical distribution given the unnormalized log probabilities $\ln p_1,\ln p_2,\dots,\ln p_N$, we just need to independently sample $N$ random variables from the standard Gumbel distribution, $x_1,x_2,\dots,x_N$, then return the category index $n$ that maximizes $x_n+\ln p_n$.
 
 \end{document}
