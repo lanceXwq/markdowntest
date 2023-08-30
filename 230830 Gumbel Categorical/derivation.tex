@@ -41,7 +41,7 @@ Plugging \crefrange{eq:conditional_p}{eq:expansion2} into \cref{eq:full_integral
 \begin{align}
      & P\left(n=\argmax_m\left(x_m+\ln p_m\right)\right)\nonumber                                                           \\
      & =\int_{-\infty}^\infty\mathrm{d}x_n P\left(x_n+\ln p_n\geq x_n+\ln p_n\middle|x_n\right) P\left(x_n\right) \nonumber \\
-     & ~\times\prod_{\substack{m=1                                                                                          \\m\neq n}}^N \int_{-\infty}^\infty\mathrm{d}x_m P\left(x_n+\ln p_n\geq x_m+\ln p_m\middle|x_n,x_m\right) P\left(x_m\right).\label{eq:expanded_integral}
+     & ~\times\prod_{\substack{m=1\\m\neq n}}^N \int_{-\infty}^\infty\mathrm{d}x_m P\left(x_n+\ln p_n\geq x_m+\ln p_m\middle|x_n,x_m\right) P\left(x_m\right).\label{eq:expanded_integral}
 \end{align}
 
 Now that we have fully expanded the integrand in \cref{eq:full_integral}, we are ready to proceed by specifying the mathematical form of each integrand of \cref{eq:expanded_integral}. For each $m=1,2,\dots,N$, the event of $x_n+\ln p_n\geq x_m+\ln p_m$ is a true-or-false question, so $P\left(x_n+\ln p_n\geq x_m+\ln p_m\middle|x_n,x_m\right)$ can only take 1 or 0 as its value. Therefore, we can express it in terms of \href{https://en.wikipedia.org/wiki/Heaviside_step_function}{the Heaviside step function}:
