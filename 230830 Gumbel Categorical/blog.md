@@ -9,7 +9,7 @@
     - [Softmax](#softmax)
   - [The standard Gumbel distribution](#the-standard-gumbel-distribution)
     - [Sampling from the standard Gumbel distribution](#sampling-from-the-standard-gumbel-distribution)
-    - [The Gumbel-max trick](#the-gumbel-max-trick)
+    - [The Gumbel-Max trick](#the-gumbel-max-trick)
 
 ## Categorical distribution
 
@@ -94,11 +94,11 @@ The standard Gumbel distribution is a special case of the Gumbel distribution wh
 
 The first outcome is how easy it is to sample from the standard Gumbel distribution: its PDF can actually be analytically integrated to obtain an invertible cumulative distribution function (CDF) $$F\left(x\right)=\exp\left[-\exp\left(-x\right)\right],$$ while its inverse is $$F^{-1}\left(u\right)=-\ln\left(-\ln u \right).$$ Therefore, according to the [fundamental theorem of simulation](https://en.wikipedia.org/wiki/Inverse_transform_sampling#Formal_statement), sampling from the standard Gumbel distribution is as easy as calculating $F^{-1}\left(u\right)$ where $u$ is a uniform random number between zero and one.
 
-### The Gumbel-max trick
+### The Gumbel-Max trick
 
 Now, consider having a target categorical distribution with $N$ unnormalized logarithmic event probabilities represented as $\ln p_1,\ln p_2,\dots,\ln p_N$. Using the algorithm outlined earlier, we can effortlessly generate an equivalent number of independent and identically distributed random variables following the standard Gumbel distribution: $x_1,x_2,\ldots,x_N$. Interestingly, when we compute the probability of $n$ being the index that maximizes the expression $x_n + \ln p_n$, it turns out to be precisely $p_n/\sum_{n=1}^N p_n$. This indicates that $x_n + \ln p_n$ itself is a random variable that precisely follows the target categorical distribution, and no calculation is done in the real space!
 
-This result is often referred to as the "Gumbel-max trick". Although I provide the full derivation in [this document](https://github.com/lanceXwq/BlogPostFiles/blob/main/230830%20Gumbel%20Categorical/derivation.pdf), deriving this result by yourself is highly recommended. Implementing this trick in Julia can be done as:
+This result is often referred to as the "Gumbel-Max trick". Although I provide the full derivation in [this document](https://github.com/lanceXwq/BlogPostFiles/blob/main/230830%20Gumbel%20Categorical/derivation.pdf), deriving this result by yourself is highly recommended. Implementing this trick in Julia can be done as:
 
 ```julia
 function categorical_sampler3(logp)
