@@ -1,3 +1,1 @@
-# BlogPostFiles
-
-Source files for my blog posts.
+My blog posts have all been moved to my [personal website](https://lancexwq.github.io/) and the source files can be found in [the corresponding repo](https://github.com/lanceXwq/lancexwq.github.io/tree/main/content/post).
